@@ -1,21 +1,38 @@
 import os
 from datetime import datetime
-from telegram.ext import ApplicationBuilder, MessageHandler, filters
+
+from telegram.ext import Updater, MessageHandler, Filters
+
 from engine import choose_reply
+
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 
-async def handle_message(update, context):
+
+def handle_message(update, context):
+    """
+    Обработка любого текстового сообщения.
+    """
     user_text = update.message.text or ""
-    reply = choose_reply(user_text, datetime.now())
-    await update.message.reply_text(reply)
+    reply = choose_reply(user_text, now=datetime.now())
+    update.message.reply_text(reply)
+
 
 def main():
     if not BOT_TOKEN:
         raise RuntimeError("BOT_TOKEN не найден в переменных окружения")
-    app = ApplicationBuilder().token(BOT_TOKEN).build()
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    app.run_polling()
+
+    # создаём Updater и диспетчер
+    updater = Updater(BOT_TOKEN, use_context=True)
+    dp = updater.dispatcher
+
+    # любой текст (не команда) -> наш обработчик
+    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
+
+    # запускаем бота
+    updater.start_polling()
+    updater.idle()
+
 
 if __name__ == "__main__":
     main()
