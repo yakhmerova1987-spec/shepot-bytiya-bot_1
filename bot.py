@@ -2,7 +2,7 @@ import os
 from datetime import datetime
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
-from telegram.ext import Updater, MessageHandler, Filters
+from telegram.ext import Updater, MessageHandler, Filters, CommandHandler
 
 from engine import choose_reply
 
@@ -13,7 +13,7 @@ PORT = int(os.environ.get("PORT", "8000"))  # Render подставит свой
 
 def handle_message(update, context):
     """
-    Обработка любого текстового сообщения.
+    Общий обработчик: и для /start, и для любого текста.
     """
     if not update.message:
         return
@@ -41,13 +41,18 @@ def main():
     # Настраиваем Telegram-бота (long polling)
     updater = Updater(BOT_TOKEN, use_context=True)
     dp = updater.dispatcher
-    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
 
-    # Запускаем polling (бот в отдельном потоке)
+    # Отдельно обрабатываем команду /start,
+    # но тем же самым обработчиком, что и обычный текст
+    dp.add_handler(CommandHandler("start", handle_message))
+
+    # Любой текст (включая то, что не команда) → туда же
+    dp.add_handler(MessageHandler(Filters.text, handle_message))
+
+    # Запускаем polling в отдельном потоке
     updater.start_polling()
 
-    # Поднимаем простой HTTP-сервер на PORT для Render,
-    # чтобы он видел открытый порт и не ругался
+    # Поднимаем простой HTTP-сервер на PORT для Render
     httpd = HTTPServer(("0.0.0.0", PORT), HealthHandler)
     httpd.serve_forever()
 
