@@ -8,7 +8,7 @@ from engine import choose_reply
 
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
-PORT = int(os.environ.get("PORT", "8000"))  # порт, который даёт Render
+PORT = int(os.environ.get("PORT", "8000"))  # Render подставит свой порт
 
 
 def handle_message(update, context):
@@ -46,7 +46,8 @@ def main():
     # Запускаем polling (бот в отдельном потоке)
     updater.start_polling()
 
-    # Поднимаем простой HTTP-сервер на PORT для Render
+    # Поднимаем простой HTTP-сервер на PORT для Render,
+    # чтобы он видел открытый порт и не ругался
     httpd = HTTPServer(("0.0.0.0", PORT), HealthHandler)
     httpd.serve_forever()
 
