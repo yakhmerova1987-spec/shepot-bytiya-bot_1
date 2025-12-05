@@ -1,5 +1,6 @@
 import os
 from datetime import datetime
+from http.server import HTTPServer, BaseHTTPRequestHandler
 
 from telegram.ext import Updater, MessageHandler, Filters
 
@@ -7,8 +8,7 @@ from engine import choose_reply
 
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
-APP_URL = os.environ.get("APP_URL")  # https://имя-сервиса.onrender.com
-PORT = int(os.environ.get("PORT", "8000"))  # Render сам подставит PORT
+PORT = int(os.environ.get("PORT", "8000"))  # порт, который даёт Render
 
 
 def handle_message(update, context):
@@ -23,30 +23,32 @@ def handle_message(update, context):
     update.message.reply_text(reply)
 
 
+class HealthHandler(BaseHTTPRequestHandler):
+    """
+    Простейший HTTP-сервер, чтобы Render видел открытый порт.
+    """
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header("Content-type", "text/plain; charset=utf-8")
+        self.end_headers()
+        self.wfile.write("shepot bytiya is breathing".encode("utf-8"))
+
+
 def main():
     if not BOT_TOKEN:
         raise RuntimeError("BOT_TOKEN не найден в переменных окружения")
-    if not APP_URL:
-        raise RuntimeError("APP_URL не найден в переменных окружения")
 
-    # создаём Updater и диспетчер
+    # Настраиваем Telegram-бота (long polling)
     updater = Updater(BOT_TOKEN, use_context=True)
     dp = updater.dispatcher
-
-    # любой текст (кроме команд) -> наш обработчик
     dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
 
-    # запускаем webhook-сервер
-    updater.start_webhook(
-        listen="0.0.0.0",
-        port=PORT,
-        url_path=BOT_TOKEN,  # путь для Telegram
-    )
+    # Запускаем polling (бот в отдельном потоке)
+    updater.start_polling()
 
-    webhook_url = APP_URL.rstrip("/") + "/" + BOT_TOKEN
-    updater.bot.set_webhook(webhook_url)
-
-    updater.idle()
+    # Поднимаем простой HTTP-сервер на PORT для Render
+    httpd = HTTPServer(("0.0.0.0", PORT), HealthHandler)
+    httpd.serve_forever()
 
 
 if __name__ == "__main__":
